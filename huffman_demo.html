@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>哈夫曼树构建动态演示</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; }
+        #mynetwork {
+            width: 800px;
+            height: 500px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+            margin-top: 20px;
+        }
+        .controls { margin-bottom: 10px; }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button:hover { background-color: #45a049; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #prevBtn { background-color: #f39c12; }
+        #prevBtn:hover { background-color: #e67e22; }
+        #status { font-size: 18px; font-weight: bold; color: #333; margin-left: 10px;}
+    </style>
+</head>
+<body>
+
+    <h2>🌳 哈夫曼树 (Huffman Tree) 构建过程交互演示</h2>
+    <div class="controls">
+        <button id="prevBtn" onclick="prevStep()" disabled>上一步</button>
+        <button id="nextBtn" onclick="nextStep()">执行下一步</button>
+        <button onclick="resetDemo()">重置</button>
+        <span id="status">初始状态：准备构建，初始权重集合 {5, 9, 12, 13, 16, 45}</span>
+    </div>
+
+    <div id="mynetwork"></div>
+
+    <script>
+        let nodes, edges, network;
+        let forest = []; 
+        let nextNodeId = 100;
+        let historyStack = []; // 用于存储历史状态的栈
+
+        const initialWeights = [5, 9, 12, 13, 16, 45];
+
+        function initGraph() {
+            nodes = new vis.DataSet();
+            edges = new vis.DataSet();
+            forest = [];
+            nextNodeId = 100;
+            historyStack = [];
+
+            initialWeights.forEach((weight, index) => {
+                let id = index + 1;
+                nodes.add({ id: id, label: String(weight), color: '#97C2FC' });
+                forest.push({ id: id, weight: weight });
+            });
+
+            let container = document.getElementById('mynetwork');
+            let data = { nodes: nodes, edges: edges };
+            
+            let options = {
+                layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+                physics: true, 
+                nodes: { shape: 'circle', font: { size: 20 } },
+                edges: { arrows: 'to', font: { align: 'middle' } }
+            };
+            network = new vis.Network(container, data, options);
+            
+            document.getElementById('prevBtn').disabled = true;
+            document.getElementById('nextBtn').disabled = false;
+        }
+
+        // 保存当前状态到栈中
+        function saveState() {
+            historyStack.push({
+                nodes: nodes.get(), // 获取当前所有节点数据
+                edges: edges.get(), // 获取当前所有边数据
+                forest: JSON.parse(JSON.stringify(forest)), // 深拷贝森林数组
+                nextNodeId: nextNodeId,
+                statusText: document.getElementById('status').innerText,
+                statusColor: document.getElementById('status').style.color
+            });
+            document.getElementById('prevBtn').disabled = false;
+        }
+
+        function nextStep() {
+            if (forest.length <= 1) return;
+
+            // 执行操作前先保存状态
+            saveState();
+
+            // 排序并取出最小两个节点
+            forest.sort((a, b) => a.weight - b.weight);
+            let left = forest.shift();
+            let right = forest.shift();
+
+            // 生成新节点
+            let newWeight = left.weight + right.weight;
+            let newId = nextNodeId++;
+
+            nodes.add({ id: newId, label: String(newWeight), color: '#FFB347' });
+            edges.add({ from: newId, to: left.id, label: '0' });
+            edges.add({ from: newId, to: right.id, label: '1' });
+            forest.push({ id: newId, weight: newWeight });
+
+            document.getElementById('status').innerText = `合并节点 ${left.weight} 和 ${right.weight}，生成新节点 ${newWeight}`;
+
+            if (forest.length <= 1) {
+                document.getElementById('status').innerText = "🎉 构建完成！这就是最终的哈夫曼树。";
+                document.getElementById('status').style.color = "green";
+                document.getElementById('nextBtn').disabled = true;
+            }
+        }
+
+        function prevStep() {
+            if (historyStack.length === 0) return;
+
+            // 弹出上一个状态
+            let prevState = historyStack.pop();
+
+            // 恢复数据集
+            nodes.clear();
+            nodes.add(prevState.nodes);
+            edges.clear();
+            edges.add(prevState.edges);
+
+            // 恢复变量
+            forest = prevState.forest;
+            nextNodeId = prevState.nextNodeId;
+
+            // 恢复 UI 状态
+            document.getElementById('status').innerText = prevState.statusText;
+            document.getElementById('status').style.color = prevState.statusColor;
+            document.getElementById('nextBtn').disabled = false;
+
+            if (historyStack.length === 0) {
+                document.getElementById('prevBtn').disabled = true;
+            }
+        }
+
+        function resetDemo() {
+            document.getElementById('status').style.color = "#333";
+            document.getElementById('status').innerText = "初始状态：准备构建，初始权重集合 {5, 9, 12, 13, 16, 45}";
+            initGraph();
+        }
+
+        window.onload = initGraph;
+    </script>
+</body>
+</html>
